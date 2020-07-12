@@ -21,7 +21,8 @@ class rpc:
 
 class blockchain:
     def __init__(self):
-        self.height = rpc().request('getblockcount')
+        self.rpc = rpc()
+        self.height = self.rpc.request('getblockcount')
         self.blocks_processed = 0
 
     def blockinfo(self):
@@ -29,8 +30,8 @@ class blockchain:
             #if self.blocks_processed % 1000 == 1:
             #    print(self.blocks_processed)
 
-            block_hash = rpc().request("getblockhash", [self.blocks_processed])
-            block = rpc().request("getblock", [block_hash])
+            block_hash = self.rpc.request("getblockhash", [self.blocks_processed])
+            block = self.rpc.request("getblock", [block_hash])
 
             for key in block.keys():
                 # extract subkey 'cbTx'
