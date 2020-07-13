@@ -1,4 +1,13 @@
 #!/usr/bin/python3
+# TODO
+#   == Blockchain ==
+#       - getblockstats
+#       - getchaintxstats
+#   == Raw Transactions ==
+#       - getrawtransaction
+#
+#  Build SQL server with relevant tables to populate data with.
+
 import requests
 import json
 
@@ -25,6 +34,10 @@ class blockchain:
         self.height = self.rpc.request('getblockcount')
         self.blocks_processed = 0
 
+    # Store output into SQL table [blockinfo]
+    # theory-query:
+    #   SELECT * FROM blockinfo WHERE tx = '39d15a41590a04edefc007d3d8c3eb6e81df54d6efe0ca3d155b5de8a0364f79'
+    #   SELECT * FROM blockinfo WHERE flags LIKE '%proof-of-stake%' AND weight <= 300
     def blockinfo(self):
         while self.blocks_processed < self.height:
             #if self.blocks_processed % 1000 == 1:
@@ -37,10 +50,15 @@ class blockchain:
                 # extract subkey 'cbTx'
                 if (type(block[key]) == dict):
                     for subkey in block[key].keys():
-                        print(f"{subkey}: {block[key][subkey]}")
+                        print(f"cbTx-{subkey}: {block[key][subkey]}")
+
+                if (type(block[key]) == float):
+                    print(f"{key}: {format(block[key], '.8f')}")
 
                 # skip over cbTx to avoid double print as the info is extracted above
                 if (key == 'cbTx'):
+                    pass
+                elif (key == 'difficulty'):
                     pass
                 else:
                     print(f"""{key}: {str(block[key]).translate(str.maketrans('', '', '[]')).translate(str.maketrans({"'":None}))}""")
