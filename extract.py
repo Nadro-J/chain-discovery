@@ -7,9 +7,12 @@
 #       - getrawtransaction
 #
 #  Build SQL server with relevant tables to populate data with.
+#
+#  Theory-query:
+#   SELECT * FROM blockinfo WHERE tx = '39d15a41590a04edefc007d3d8c3eb6e81df54d6efe0ca3d155b5de8a0364f79'
+#   SELECT * FROM blockinfo WHERE flags LIKE '%proof-of-stake%' AND weight <= 300
 
-import requests
-import json
+import json, requests
 
 class rpc:
     def __init__(self):
@@ -31,40 +34,74 @@ class rpc:
 class blockchain:
     def __init__(self):
         self.rpc = rpc()
-        self.height = self.rpc.request('getblockcount')
+        self.height = self.getblockheight()
         self.blocks_processed = 0
+        self.blockinfo_construct = {}
 
-    # Store output into SQL table [blockinfo]
-    # theory-query:
-    #   SELECT * FROM blockinfo WHERE tx = '39d15a41590a04edefc007d3d8c3eb6e81df54d6efe0ca3d155b5de8a0364f79'
-    #   SELECT * FROM blockinfo WHERE flags LIKE '%proof-of-stake%' AND weight <= 300
-    def blockinfo(self):
-        while self.blocks_processed < self.height:
-            #if self.blocks_processed % 1000 == 1:
-            #    print(self.blocks_processed)
+    def getblockheight(self):
+        return self.rpc.request('getblockcount')
 
-            block_hash = self.rpc.request("getblockhash", [self.blocks_processed])
-            block = self.rpc.request("getblock", [block_hash])
+#    def getblockstats(self):
+#        block_stats = self.rpc.request("getblockstats", [self.blocks_processed])
+#        return block_stats
 
+    def blockchaininfo(self):
+        """
+        RETURN: json object
+        Perform RPC commands getblockhash, getblock and dump the output into json
+
+        JSON Keys:
+            hash                    chainwork
+            confirmations           nTx
+            strippedsize            nextblockhash
+            size                    mint
+            weight                  moneysupply
+            height                  flags
+            version                 proofhash
+            versionHex              entropybit
+            merkleroot              modifier
+            tx                      modifierchecksum
+            time                    blocksignature
+            mediantime              chainlock
+            nonce                   merkleRootMNList
+            bits                    merkleRootQuorums
+            difficulty              previousblockhash
+        """
+        block_hash = self.rpc.request("getblockhash", [self.blocks_processed])
+        block      = self.rpc.request("getblock", [block_hash])
+
+        try:
             for key in block.keys():
-                # extract subkey 'cbTx'
-                if (type(block[key]) == dict):
+                # extract subkey 'cbTx' data
+                if type(block[key]) == dict:
                     for subkey in block[key].keys():
-                        print(f"cbTx-{subkey}: {block[key][subkey]}")
+                        self.blockinfo_construct[subkey] = block[key][subkey]
 
-                if (type(block[key]) == float):
-                    print(f"{key}: {format(block[key], '.8f')}")
+                # Add 8 decimal places
+                if type(block[key]) == float:
+                    self.blockinfo_construct[key] = format(block[key], '.8f')
 
-                # skip over cbTx to avoid double print as the info is extracted above
-                if (key == 'cbTx'):
+                # skip over cbTx, difficulty and mint to avoid double printing
+                if key == 'cbTx':
                     pass
                 elif (key == 'difficulty'):
                     pass
+                elif (key == 'mint'):
+                    pass
                 else:
-                    print(f"""{key}: {str(block[key]).translate(str.maketrans('', '', '[]')).translate(str.maketrans({"'":None}))}""")
+                    self.blockinfo_construct[key] = str(block[key]).translate(str.maketrans('', '', '[]')).translate(str.maketrans({"'": None}))
+        except Exception as error:
+            return f"Exception raised on getblockinfo():\n {error}"
+
+        block = json.dumps(self.blockinfo_construct)
+        return json.loads(block)
+
+    def process_blocks(self):
+        while self.blocks_processed < self.height:
+            print(self.blockchaininfo())  # printing to debug
 
             self.blocks_processed = self.blocks_processed + 1
 
 if __name__ == '__main__':
     chain = blockchain()
-    chain.blockinfo()
+    chain.process_blocks()
