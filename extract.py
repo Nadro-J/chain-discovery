@@ -16,7 +16,7 @@ import json, requests
 
 class rpc:
     def __init__(self):
-        self.url = 'http://rpcuser:rpcpwd@localhost:8331'
+        self.url = 'http://discordairdrop1:discordairdrop1@localhost:8331'
 
     def request(self, method, params=None):
         payload = {'id': 1, 'method': method, 'rpc': '1.0'}
@@ -93,8 +93,7 @@ class blockchain:
         except Exception as error:
             return f"Exception raised on getblockinfo():\n {error}"
 
-        block = json.dumps(self.blockinfo_construct)
-        return json.loads(block)
+        return json.loads(json.dumps(self.blockinfo_construct))
 
     def process_blocks(self):
         while self.blocks_processed < self.height:
