@@ -16,7 +16,7 @@ import json, requests
 
 class rpc:
     def __init__(self):
-        self.url = 'http://discordairdrop1:discordairdrop1@localhost:8331'
+        self.url = 'http://rpcuser:rpcpwd@localhost:8331'
 
     def request(self, method, params=None):
         payload = {'id': 1, 'method': method, 'rpc': '1.0'}
