@@ -1,17 +1,16 @@
 #!/usr/bin/python3
-
 from src import rpc_request
+from src import psql
 import json
-
-#  Theory-query:
-#   SELECT * FROM blockinfo WHERE tx = '39d15a41590a04edefc007d3d8c3eb6e81df54d6efe0ca3d155b5de8a0364f79'
-#   SELECT * FROM blockinfo WHERE flags LIKE '%proof-of-stake%' AND weight <= 300
+import pathlib
 
 class scrape_chain:
     def __init__(self):
+        self.dir = pathlib.Path(__file__).parent.parent
         self.rpc = rpc_request.rpc()
         self.height = self.getblockheight()
-        self.blocks_processed = 0
+        self.blocks_processed = 1
+        self.counter = 0
         self.blockinfo_construct = {}
         self.blockstats_construct = {}
         self.blockheader_construct = {}
@@ -62,7 +61,7 @@ class scrape_chain:
             minfeerate              mintxsize
             outs                    subsidy
             swtotal_size            swtotal_weight
-            swtxs                   time
+            time
             total_out               total_size
             total_weight            totalfee
             txs                     utxo_increase
@@ -71,7 +70,7 @@ class scrape_chain:
         block_stats = self.rpc.request("getblockstats", [self.blocks_processed])
         try:
             for key in block_stats:
-                self.blockstats_construct[key] = block_stats[key]
+                self.blockstats_construct[key] = str(block_stats[key]).translate(str.maketrans('', '', '[]')).translate(str.maketrans({"'": None}))
             return json.loads(json.dumps(self.blockstats_construct))
         except Exception as error:
             return f"Exception raised on getblockstats():\n {error}"
@@ -126,15 +125,44 @@ class scrape_chain:
         return json.loads(json.dumps(self.blockinfo_construct))
 
     def process_blocks(self):
+        with open(f"{self.dir}/utils/sql/getblockstats_bulk_insert.sql", 'r')as f:
+            batchInsertQuery = f.read()
+
+        with open('config.json') as config:
+            config = json.load(config)
+
+        sql = psql.connector(config)
+        blockstat_data = []
+        block = ()
+
         while self.blocks_processed < self.height:
 
             # visual debugging/capturing of block data
             print(f"▓▓ HEIGHT: {self.blocks_processed} ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓")
-            print(self.blockchaininfo())
-            print("░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░")
-            print(self.getblockstats())
-            print("░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░")
-            print(self.getblockheader())
-            print("\n")
 
+            for key in self.getblockstats():
+                # Add square brackets [] inbetween feerate_percentiles output to resolve
+                # issue with SQL query being incorrect
+                if key == 'feerate_percentiles':
+                    block = block + (str("[" + self.getblockstats()[key] + "]"),)
+                    pass
+                else:
+                    block = block + (str(self.getblockstats()[key]),)
+
+            # add the data insert into dictionary 'bulk_insert'
+            blockstat_data.append(block)
+            block = ()
+
+            # insert data every 250 blocks
+            if self.blocks_processed % 250 == 0:
+                sql.cursor.execute(batchInsertQuery.format(SQL_INSERTS=str(blockstat_data)[1:-1]))
+                sql.connection.commit()
+
+                # clear bulk_insert
+                blockstat_data = []
+                
             self.blocks_processed = self.blocks_processed + 1
+
+        if self.blocks_processed > 0:
+            sql.cursor.execute(batchInsertQuery.format(SQL_INSERTS=str(blockstat_data)[1:-1]))
+            sql.connection.commit()

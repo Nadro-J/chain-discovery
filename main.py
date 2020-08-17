@@ -15,9 +15,14 @@ def gobject_API():
     arg = request.args.get('arg')
     return rpc.gobject(cmd, arg)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+@app.route('/api/v1/masternodelist', methods=['GET'])
+def masternodelist_API():
+    mode = request.args.get('mode')
+    filter = request.args.get('filter')
+    return rpc.masternodelist(mode, filter)
 
-    # commented out whilst messing around with Flask API.
-    #chain = block_extract.scrape_chain()
-    #chain.process_blocks()
+if __name__ == '__main__':
+    #app.run(host='0.0.0.0', port=5000)
+
+    chain = block_extract.scrape_chain()
+    chain.process_blocks()

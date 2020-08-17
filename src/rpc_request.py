@@ -22,8 +22,15 @@ class rpc:
 
     # Set of commands to manage governance objects
     def gobject(self, *args):
-        build_args = []
+        gobj_args = []
         for value in args:
             if value != None:
-                build_args.append(value)
-        return self.request('gobject', build_args)
+                gobj_args.append(value)
+        return self.request('gobject', gobj_args)
+
+    def masternodelist(self, *args):
+        mnlist_args = []
+        for value in args:
+            if value != None:
+                mnlist_args.append(value)
+        return self.request('masternodelist', mnlist_args)
